@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<title>Escape Wegfurt</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  :root{
+    --olive:#3d3f2e; --olive-deep:#2a2c1f; --khaki:#c7bd94; --sand:#e5dcc0;
+    --danger:#e8b23a; --blood:#9a2b1e; --steel:#1a1c17;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;width:100%;overflow:hidden;}
+  body{
+    background:var(--steel); color:var(--sand);
+    font-family:"Oswald","Bebas Neue","Arial Narrow",Impact,sans-serif; letter-spacing:.02em;
+  }
+
+  /* ================= SCHLOSS-SPERRE ================= */
+  #gate{
+    position:fixed; inset:0; z-index:2000; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; padding:24px 18px;
+    background:
+      repeating-linear-gradient(45deg,transparent,transparent 14px,rgba(0,0,0,.18) 14px,rgba(0,0,0,.18) 28px),
+      radial-gradient(circle at 50% 30%,#33352690,#14150f),
+      var(--steel);
+    overflow-y:auto;
+  }
+  #gate.hidden{ display:none; }
+  .gate-tag{ font-size:.66rem; letter-spacing:.32em; color:var(--steel); background:var(--danger); padding:3px 10px; font-weight:700; transform:rotate(-1.5deg); }
+  .gate-h1{ font-size:clamp(1.8rem,8vw,2.8rem); font-weight:700; text-transform:uppercase; margin:10px 0 4px; text-shadow:2px 2px 0 #000; text-align:center; }
+  .gate-h1 span{ color:var(--danger); }
+  .gate-sub{ color:var(--khaki); font-size:.85rem; text-align:center; max-width:34ch; line-height:1.45; margin-bottom:22px; }
+
+  .lock{
+    background:linear-gradient(180deg,#43362a,#2b221a);
+    border:2px solid #1a120c; border-radius:14px; padding:18px 16px 20px;
+    box-shadow:0 14px 40px rgba(0,0,0,.6), inset 0 2px 6px rgba(255,255,255,.06);
+  }
+  .lock-label{ text-align:center; font-size:.66rem; letter-spacing:.28em; color:var(--khaki); margin-bottom:12px; text-transform:uppercase; }
+  .dials{ display:flex; gap:10px; justify-content:center; }
+  .dial{
+    width:58px; background:linear-gradient(180deg,#111,#2a2a24,#111);
+    border:2px solid #000; border-radius:8px; overflow:hidden; position:relative;
+    box-shadow:inset 0 0 12px rgba(0,0,0,.8);
+  }
+  .dial .up,.dial .down{
+    height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+    color:var(--danger); font-size:1.1rem; user-select:none; background:rgba(232,178,58,.06);
+  }
+  .dial .up:active,.dial .down:active{ background:rgba(232,178,58,.22); }
+  .dial .num{
+    height:64px; display:flex; align-items:center; justify-content:center;
+    font-size:2.2rem; font-weight:700; color:var(--sand);
+    background:repeating-linear-gradient(180deg,#1c1c17,#1c1c17 2px,#232319 2px,#232319 4px);
+    text-shadow:0 2px 4px #000; border-top:1px solid #000; border-bottom:1px solid #000;
+  }
+  .lock-actions{ display:flex; gap:10px; margin-top:16px; justify-content:center; }
+  .lock-actions button{
+    font-family:inherit; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    padding:11px 20px; font-size:.85rem; cursor:pointer; border:none; background:var(--danger); color:var(--steel);
+  }
+  .lock-msg{ text-align:center; margin-top:12px; font-size:.82rem; min-height:1.2em; }
+  .lock-msg.no{ color:var(--danger); }
+  .lock-msg.ok{ color:#a9d47a; }
+  .shake{ animation:shake .4s; }
+  @keyframes shake{ 0%,100%{transform:translateX(0);} 20%{transform:translateX(-8px);} 40%{transform:translateX(8px);} 60%{transform:translateX(-6px);} 80%{transform:translateX(6px);} }
+  .gate-help{ margin-top:20px; font-size:.72rem; color:#6b6a55; text-align:center; }
+  .gate-help u{ cursor:pointer; color:var(--khaki); }
+
+  /* Verstecktes Fundstück 1: Jahr liegt unter verschiebbarem Verschluss-Streifen */
+  .reveal-strip{ position:relative; width:min(300px,80vw); height:34px; margin:0 auto 22px;
+    border:1px solid #1a120c; border-radius:6px; overflow:hidden;
+    background:var(--steel); box-shadow:inset 0 0 10px rgba(0,0,0,.6); }
+  .reveal-under{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:.82rem; font-weight:700; letter-spacing:.2em; color:var(--danger);
+    text-shadow:0 1px 2px #000; }
+  .reveal-band{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:.66rem; font-weight:700; letter-spacing:.22em; color:var(--steel);
+    background:
+      repeating-linear-gradient(45deg,var(--danger),var(--danger) 12px,#111 12px,#111 24px);
+    cursor:grab; touch-action:pan-y; user-select:none;
+    will-change:transform; }
+  .reveal-band span{ background:var(--danger); padding:2px 8px; border-radius:3px;
+    box-shadow:0 1px 2px rgba(0,0,0,.4); }
+  .reveal-band:active{ cursor:grabbing; }
+  /* Verstecktes Fundstück 2: antippbares Siegel deckt "30" auf */
+  .gate-stamp{ position:absolute; top:16px; right:14px; z-index:2100; }
+  .seal-outer{
+    width:66px; height:66px; border-radius:50%;
+    border:2px dashed var(--blood); display:flex; align-items:center; justify-content:center;
+    transform:rotate(-12deg); transition:transform .3s ease, border-color .3s ease;
+    background:radial-gradient(circle,rgba(154,43,30,.15),transparent 70%);
+  }
+  .seal-outer.open{ transform:rotate(0) scale(1.08); border-style:solid; border-color:var(--danger); }
+  .seal-text{ font-size:.72rem; font-weight:700; letter-spacing:.1em; color:var(--blood); text-align:center; line-height:1; }
+  .seal-outer.open .seal-text{ color:var(--danger); font-size:1.6rem; letter-spacing:0; }
+
+  /* ================= APP / KARTE ================= */
+  #app{ position:fixed; inset:0; display:none; }
+  #app.show{ display:block; }
+  #map{ position:absolute; inset:0; height:100%; width:100%; background:#0a0b08;
+        filter:contrast(1.26) saturate(1.32) brightness(.93); }
+  .leaflet-container{ background:#0a0b08; font-family:inherit; }
+
+  /* Taktik-Overlay */
+  #overlay{ position:absolute; inset:0; pointer-events:none; z-index:600; }
+  #overlay .grid{ position:absolute; inset:0;
+    background:
+      linear-gradient(rgba(232,178,58,.05) 1px,transparent 1px) 0 0/100% 40px,
+      linear-gradient(90deg,rgba(232,178,58,.05) 1px,transparent 1px) 0 0/40px 100%,
+      radial-gradient(circle at 50% 45%,transparent 58%,rgba(0,0,0,.5) 100%);
+    mix-blend-mode:screen; }
+  #overlay .border{ position:absolute; inset:0; box-shadow:inset 0 0 0 3px var(--danger), inset 0 0 50px rgba(0,0,0,.55); }
+
+  /* Kopf-HUD über Karte */
+  .topbar{
+    position:absolute; top:0; left:0; right:0; z-index:700; pointer-events:none;
+    display:flex; align-items:center; gap:8px; padding:10px 12px;
+    background:linear-gradient(180deg,rgba(20,21,15,.92),rgba(20,21,15,0));
+  }
+  .topbar .title{ font-weight:700; text-transform:uppercase; font-size:1rem; text-shadow:1px 1px 0 #000; }
+  .topbar .title b{ color:var(--danger); }
+  .dots{ display:flex; gap:5px; margin-left:auto; pointer-events:none; }
+  .dot{ width:15px; height:15px; border:2px solid var(--khaki); transform:rotate(45deg);
+        display:flex; align-items:center; justify-content:center; }
+  .dot span{ transform:rotate(-45deg); font-size:.55rem; color:var(--khaki); }
+  .dot.on{ background:var(--danger); border-color:var(--danger); }
+  .dot.on span{ color:var(--steel); font-weight:700; }
+
+  /* aktive Missions-Leiste unten */
+  .mbar{
+    position:absolute; left:0; right:0; bottom:0; z-index:700;
+    background:linear-gradient(180deg,rgba(26,28,23,0),rgba(26,28,23,.96) 30%);
+    padding:26px 14px calc(14px + env(safe-area-inset-bottom));
+  }
+  .mcard{
+    background:linear-gradient(180deg,var(--olive),var(--olive-deep));
+    border:1px solid #000; border-left:5px solid var(--danger); padding:12px 14px;
+    box-shadow:0 8px 26px rgba(0,0,0,.6); max-width:620px; margin:0 auto;
+  }
+  .mcard .top{ display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+  .mcard .num{ background:var(--steel); color:var(--danger); width:34px; height:34px; flex:none;
+    display:flex; align-items:center; justify-content:center; font-size:1.2rem; font-weight:700; border:1px solid #000; }
+  .mcard .name{ font-size:1.05rem; font-weight:700; text-transform:uppercase; }
+  .mcard .code{ font-size:.62rem; letter-spacing:.14em; color:var(--khaki); }
+  .mcard .txt{ font-size:.86rem; line-height:1.45; color:var(--sand); }
+  .mcard .peil{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; font-size:.72rem; }
+  .mcard .peil div{ background:var(--steel); border:1px solid #000; padding:5px 9px; }
+  .mcard .peil b{ color:var(--danger); font-size:.95rem; }
+  .mcard .aux{ display:flex; gap:8px; flex-wrap:wrap; margin-top:9px; }
+  .mcard .aux button{ font-family:inherit; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+    font-size:.68rem; padding:7px 11px; border:1px solid var(--khaki); background:transparent; color:var(--khaki); cursor:pointer; }
+  .mcard .helpcard{ background:var(--danger)!important; color:var(--steel)!important; border-color:var(--danger)!important; }
+  .mcard .fb{ margin-top:7px; font-size:.78rem; min-height:1em; }
+  .mcard .fb.no{ color:var(--danger); } .mcard .fb.ok{ color:#a9d47a; }
+  .mcard .hint{ display:none; margin-top:7px; font-size:.76rem; font-style:italic; color:var(--khaki); background:rgba(0,0,0,.28); padding:7px; }
+  .mcard .hint.show{ display:block; }
+
+  /* Marker */
+  .found-ico{ background:transparent!important; border:none!important; }
+  .found-ico .pin{ width:32px;height:32px;margin:-16px 0 0 -16px;border:3px solid var(--danger);border-radius:50%;
+    box-shadow:0 0 0 2px #000,0 0 14px rgba(232,178,58,.7);display:flex;align-items:center;justify-content:center;
+    background:rgba(26,28,23,.7);color:var(--danger);font-weight:700;animation:ping 1.5s ease-out;}
+  @keyframes ping{0%{transform:scale(.2);opacity:0;}60%{transform:scale(1.15);opacity:1;}100%{transform:scale(1);}}
+  .found-ico .lbl{position:absolute;left:20px;top:-6px;white-space:nowrap;background:var(--danger);color:var(--steel);
+    font-size:.58rem;font-weight:700;letter-spacing:.06em;padding:2px 6px;text-transform:uppercase;transform:rotate(-2deg);}
+  .target-ico .pin{border-color:var(--blood);color:var(--blood);box-shadow:0 0 0 2px #000,0 0 18px rgba(154,43,30,.8);}
+  .target-ico .lbl{background:var(--blood);color:var(--sand);}
+
+  /* Popup-Style (Briefing beim Aufdecken) */
+  .leaflet-popup-content-wrapper{ background:var(--olive-deep); color:var(--sand); border:1px solid var(--danger); border-radius:4px; }
+  .leaflet-popup-tip{ background:var(--olive-deep); border:1px solid var(--danger); }
+  .leaflet-popup-content{ margin:12px 14px; font-family:inherit; }
+  .pop-name{ font-weight:700; text-transform:uppercase; color:var(--danger); font-size:1rem; margin-bottom:4px; }
+  .pop-story{ font-size:.82rem; line-height:1.5; color:var(--sand); }
+  .pop-song{ display:inline-block; margin-top:8px; font-size:.72rem; background:var(--danger); color:var(--steel); padding:5px 9px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+
+  /* Finale-Overlay */
+  #final{ position:absolute; inset:0; z-index:900; display:none; align-items:center; justify-content:center; padding:22px;
+    background:rgba(20,17,13,.9); text-align:center; }
+  #final.on{ display:flex; }
+  #final .box{ max-width:460px; border:2px solid var(--blood); padding:26px 20px;
+    background:repeating-linear-gradient(45deg,transparent,transparent 14px,rgba(154,43,30,.1) 14px,rgba(154,43,30,.1) 28px),linear-gradient(180deg,#241a15,#17110d); }
+  #final h2{ font-size:1.7rem; font-weight:700; text-transform:uppercase; color:var(--danger); text-shadow:2px 2px 0 #000; }
+  #final p{ color:var(--khaki); font-size:.9rem; margin:8px 0; }
+  #final .obj{ font-size:1.6rem; font-weight:700; text-transform:uppercase; color:var(--sand); margin:12px 0; }
+  #final a{ display:inline-block; margin-top:8px; background:var(--danger); color:var(--steel); text-decoration:none;
+    font-weight:700; padding:11px 18px; letter-spacing:.08em; text-transform:uppercase; font-size:.82rem; }
+  #final .close{ display:block; margin:14px auto 0; background:none; border:1px solid var(--khaki); color:var(--khaki);
+    font-family:inherit; font-size:.7rem; padding:6px 12px; cursor:pointer; letter-spacing:.1em; text-transform:uppercase; }
+
+  /* Koordinaten-Eingabe im Finale */
+  .coord-in{ margin:16px 0 4px; }
+  .coord-done{ display:none; margin:16px 0 4px; }
+  .coord-done.on{ display:block; }
+  .coord-in.hide{ display:none; }
+  .crow{ display:flex; align-items:center; justify-content:center; gap:6px; margin:8px 0; }
+  .crow .cpref{ color:var(--danger); font-weight:700; font-size:1.1rem; width:1.2em; text-align:right; }
+  .crow .cdot{ color:var(--sand); font-weight:700; font-size:1.3rem; }
+  .crow input{ background:#0e0b08; border:1px solid var(--khaki); color:var(--sand);
+    font-family:inherit; font-weight:700; text-align:center; padding:8px 6px; font-size:1rem;
+    letter-spacing:.14em; border-radius:3px; -webkit-appearance:none; }
+  .crow input:focus{ outline:none; border-color:var(--danger); box-shadow:0 0 0 2px rgba(232,178,58,.25); }
+  .crow input::placeholder{ color:#5a564a; letter-spacing:.14em; }
+  .crow .cwhole{ width:2.6em; }
+  .crow .cfrac{ width:5.2em; }
+  .cbtns{ display:flex; gap:8px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
+  .cbtns button{ font-family:inherit; font-weight:700; cursor:pointer; padding:10px 16px;
+    text-transform:uppercase; letter-spacing:.08em; font-size:.78rem; border-radius:3px; }
+  #coordCheck{ background:var(--danger); color:var(--steel); border:none; }
+  #coordHintBtn.ghost{ background:none; border:1px solid var(--khaki); color:var(--khaki); }
+  .cmsg{ min-height:1.1em; margin-top:10px; font-size:.82rem; font-weight:700; letter-spacing:.05em; }
+  .cmsg.err{ color:var(--danger); }
+  .chint{ display:none; margin-top:10px; color:var(--khaki); font-size:.82rem; line-height:1.5;
+    border-top:1px dashed #4a4a3a; padding-top:10px; }
+  .chint.show{ display:block; }
+
+  .reset{ position:absolute; bottom:6px; right:8px; z-index:700; background:rgba(0,0,0,.4); border:1px solid #4a4a3a;
+    color:#8a8870; font-family:inherit; font-size:.6rem; padding:3px 8px; cursor:pointer; letter-spacing:.08em; }
+  .reopen{ position:absolute; bottom:6px; left:8px; z-index:700; display:none;
+    background:rgba(154,43,30,.5); border:1px solid var(--danger); border-radius:3px;
+    color:var(--sand); font-family:inherit; font-size:.62rem; font-weight:700; padding:4px 10px;
+    cursor:pointer; letter-spacing:.08em; text-transform:uppercase; }
+  .reopen.on{ display:block; }
+  @media (prefers-reduced-motion:reduce){ *{animation:none!important;} }
+</style>
+</head>
+<body>
+
+<!-- ============ ZAHLENSCHLOSS ============ -->
+<div id="gate">
+  <div class="gate-stamp" id="gateSeal" title="">
+    <div class="seal-outer">
+      <span class="seal-text" id="sealText">GEHEIM</span>
+    </div>
+  </div>
+
+  <span class="gate-tag">ZUGANG GESPERRT</span>
+  <div class="gate-h1">ESCAPE <span>WEGFURT</span></div>
+  <div class="gate-sub">Diese Akte ist verschlüsselt. Die Startkarte weist dir den Weg — doch nicht alles, was du brauchst, steht dort. Manches ruht hier. Lass die drei Zahlen zu einer werden.</div>
+
+  <div class="reveal-strip" id="revealStrip">
+    <div class="reveal-under" id="revealUnder">EINSATZJAHR 2026</div>
+    <div class="reveal-band" id="revealBand"><span>VERSCHLUSSSACHE</span></div>
+  </div>
+
+  <div class="lock">
+    <div class="lock-label">◤ Zugangscode ◥</div>
+    <div class="dials" id="dials"></div>
+    <div class="lock-actions">
+      <button id="unlock">Entsperren</button>
+    </div>
+    <div class="lock-msg" id="lockMsg"></div>
+  </div>
+
+  <div class="gate-help">Stockst du? <u id="showRiddle">Ermittlungshilfe anfordern</u></div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+  <div id="map"></div>
+  <div id="overlay"><div class="grid"></div><div class="border"></div></div>
+
+  <div class="topbar">
+    <div class="title">ESCAPE <b>WEGFURT</b></div>
+    <div class="dots" id="dots"></div>
+  </div>
+
+  <div class="mbar" id="mbar"></div>
+
+  <div id="final">
+    <div class="box">
+      <h2>Endanflug</h2>
+      <p>Kein Punkt auf dieser Karte verrät das Ziel. Die Zielkoordinaten könnten jedoch offensichtlicher nicht sein und doch liegen sie in verborgenen Zeilen.</p>
+
+      <div class="coord-in" id="coordIn">
+        <div class="crow">
+          <span class="cpref">N</span>
+          <input class="cwhole" id="nWhole" inputmode="numeric" maxlength="2" placeholder="50" aria-label="Nord, Grad">
+          <span class="cdot">,</span>
+          <input class="cfrac" id="nFrac" inputmode="numeric" maxlength="4" placeholder="––––" aria-label="Nord, Nachkomma">
+        </div>
+        <div class="crow">
+          <span class="cpref">O</span>
+          <input class="cwhole" id="oWhole" inputmode="numeric" maxlength="1" placeholder="9" aria-label="Ost, Grad">
+          <span class="cdot">,</span>
+          <input class="cfrac" id="oFrac" inputmode="numeric" maxlength="4" placeholder="––––" aria-label="Ost, Nachkomma">
+        </div>
+        <div class="cbtns">
+          <button id="coordCheck">Koordinaten bestätigen</button>
+          <button class="ghost" id="coordHintBtn">Hinweis</button>
+        </div>
+        <div class="cmsg" id="coordMsg"></div>
+        <div class="chint" id="coordHint">Die Adresse ist die Lösung. 6 Werte für den Norden, 5 Werte für den Osten.</div>
+      </div>
+
+      <div class="coord-done" id="coordDone">
+        <div class="obj">✅ Zielkoordinaten bestätigt</div>
+        <p>Der Endpunkt ist entschlüsselt. Auf ins Feld.</p>
+        <a id="maplink" href="#" target="_blank" rel="noopener">In Google Maps öffnen</a>
+      </div>
+
+      <button class="close" id="closeFinal">Karte weiter ansehen</button>
+    </div>
+  </div>
+
+  <button class="reopen" id="reopenFinal">◎ Schlussrätsel</button>
+  <button class="reset" id="reset">Reset</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ============ KONFIG ============ */
+const UNLOCK_CODE = "4052";           // 1996 + 2026 + 30
+const DIALS = 4;
+const HIT_RADIUS_M = 200;
+const STORE = "operation30_v3";
+
+/* ============ MISSIONEN ============ */
+const OPS = [
+  { id:"op1", num:"1", name:"Schreiendes Grün", code:"CODENAME: SCREAM",
+    lat:50.39710057621117, lng:10.07968748580798,
+    riddle:"Grün, kurz gehalten, ordentlich gestutzt. Hier drehte sich einst alles im Kreis — mit Maske im Gesicht wurde das Rote Ross gezügelt.",
+    peil:"—", dist:"START", from:"nördlichster Punkt",
+    hint:"Ein Film der Extraklasse, fast wie in Hollywood",
+    story:"Hier entstand das legendäre Video: einer mit Scream-Maske am Steuer des Roten Rasenmähers, im Hintergrund „they see me rollin’“. Kunst war das, aber echt!",
+    song:"🎵 Hilfskarte 1 scannen",
+    good:"Schreiendes Grün gesichert." },
+
+  { id:"op2", num:"2", name:"Stellung einnehmen!", code:"CODENAME: Löffelchen",
+    lat:50.39271773158123, lng:10.07443946349211,
+    riddle:"Vom Start fast genau nach SÜDWESTEN, keine 650 Schritt. 2012, Ein Feld, Wände BALLEN sich auf, zwei Zelte, dröhnende Bässe — und ein Schuss, der’s in sich hatte.",
+    peil:"217° SW", dist:"≈ 0,6 km", from:"ab Posten 1",
+    hint:"Ich hätt’ gern noch so’n Bier mit Schuss!",
+    story:"Die Party „Bibabasstoma\": zwei Zelte, Heuballen als Schallschutz, Suppe überm Feuer, die nicht warm wurde. Und weil kein Löffel mehr da war, wurde der Akkudeckel des Handys zweckentfremdet. Wahre Ingenieurskunst.",
+    song:"",
+    good:"Löffelchenstellung eingenommen!" },
+
+  { id:"op3", num:"3", name:"Wo Affen klettern", code:"CODENAME: SONNENRÖTE",
+    lat:50.38788034355543, lng:10.08526073466564,
+    riddle:"Weiter nach SÜDOSTEN, knapp einen Kilometer. Wo man bei angemessenem Pegel und aufsteigender Sonne in die Kronen steigt.",
+    peil:"125° SO", dist:"≈ 0,9 km", from:"ab Posten 2",
+    hint:"Let's Rogge",
+    story:"Feier an Rogges Hütte. Als es hell wurde, ging's rauf auf den Baum für Sonnenaufgangs-Selfies. Aus unerfindlichen Gründen leuchtete ein Gesicht knallrot.",
+    song:"🎵 Hilfskarte 2 scannen",
+    good:"Wo Affen klettern — Baumwipfel erreicht." },
+
+  { id:"op4", num:"4", name:"Ich hab nen Berg voll Dreck", code:"CODENAME: SILVESTER Stallone",
+    lat:50.36984326789647, lng:10.1024709769877,
+    riddle:"Weiter nach SÜDOSTEN, gut zwei Kilometer. Ein Berg mit großem Namen und bescheidener Herkunft — aufgeschüttet aus dem, was andere wegwarfen.",
+    peil:"149° SO", dist:"≈ 2,3 km", from:"ab Posten 3",
+    hint:"Siehst du das Feuerwerk?",
+    story:"Der Monte Krippelino, ein alter Bauschuttberg. An Silvester gegen Mitternacht von Wegfurt hochgelaufen, um das Feuerwerk überm Rhön-Grabfeld zu sehen — Bad Neustadt lag klar im Blick. Danach weiter feiern nach Burgwallbach, im Morgengrauen zurück, gegen 7 wieder da. Omas Kehrbesen war schon im Einsatz.",
+    song:"",
+    good:"Berg voll Dreck erklommen." },
+
+  { id:"op5", num:"5", name:"Die Leuchtende Tür", code:"CODENAME: SOMMERSCHLAG",
+    lat:50.36044627690244, lng:10.11323278748811,
+    riddle:"Letzter Stützpunkt: nochmals nach SÜDOSTEN, gut einen Kilometer. Die Partys waren Lägendär, könnte man vermuten.",
+    peil:"144° SO", dist:"≈ 1,3 km", from:"ab Posten 4",
+    hint:"Wo der Ball rollt und im Sommer die Bässe liefen — mit einer Tür, die im Dunkeln leuchtete.",
+    story:"Das Sportheim Burgwallbach: Geburtstage, „Wir beaten Euch\", der Summerbeat unter freiem Himmel mit Tube & Berger. Und die legendäre selbstgebaute leuchtende DJ-Tür samt Leuchtwürfeln.",
+    song:"🎵 Hilfskarte 3 scannen",
+    good:"Alle Stützpunkte enttarnt. Endanflug freigegeben!" },
+];
+
+
+/* ============ SCHLOSS ============ */
+const dialState = Array(DIALS).fill(0);
+const dialsEl = document.getElementById("dials");
+for(let i=0;i<DIALS;i++){
+  const d=document.createElement("div"); d.className="dial";
+  d.innerHTML=`<div class="up" data-i="${i}" data-dir="1">▲</div>
+               <div class="num" id="num${i}">0</div>
+               <div class="down" data-i="${i}" data-dir="-1">▼</div>`;
+  dialsEl.appendChild(d);
+}
+dialsEl.addEventListener("click",(e)=>{
+  const i=e.target.getAttribute("data-i"); const dir=e.target.getAttribute("data-dir");
+  if(i===null) return;
+  const idx=+i; dialState[idx]=(dialState[idx]+(+dir)+10)%10;
+  document.getElementById("num"+idx).textContent=dialState[idx];
+});
+document.getElementById("unlock").addEventListener("click",()=>{
+  const entered=dialState.join("");
+  const msg=document.getElementById("lockMsg");
+  if(entered===UNLOCK_CODE){
+    msg.textContent="Zugang gewährt."; msg.className="lock-msg ok";
+    try{ localStorage.setItem(STORE+"_gate","1"); }catch(e){}
+    setTimeout(openApp,600);
+  } else {
+    msg.textContent="Falscher Code. Drei Marken — hast du alle gefunden?"; msg.className="lock-msg no";
+    document.querySelector(".lock").classList.add("shake");
+    setTimeout(()=>document.querySelector(".lock").classList.remove("shake"),450);
+  }
+});
+document.getElementById("showRiddle").addEventListener("click",()=>{
+  alert("ERMITTLUNGSHILFE\n\nDrei Marken fließen zu vier Ziffern zusammen.\n\n• Eine liegt bei dir — sieh dir die Signatur der Startakte genau an. Zwei Blöcke, die zusammengehören.\n\n• Eine ruht unter dem Siegel oben rechts — ein Tippen genügt.\n\n• Eine ist verdeckt — nicht alles auf diesem Schirm sitzt fest. Manches lässt sich zur Seite schieben.\n\nWas drei sind, muss eins werden.");
+});
+
+/* Verstecktes Fundstück: Siegel antippen deckt die Kerzenzahl (30) auf */
+document.getElementById("gateSeal").addEventListener("click",()=>{
+  const o=document.querySelector(".seal-outer");
+  const t=document.getElementById("sealText");
+  o.classList.toggle("open");
+  t.textContent = o.classList.contains("open") ? "30" : "GEHEIM";
+});
+
+/* Verstecktes Fundstück: Verschluss-Streifen zur Seite ziehen, deckt EINSATZJAHR 2026 auf */
+(function(){
+  const strip=document.getElementById("revealStrip");
+  const band=document.getElementById("revealBand");
+  let dragging=false, startX=0, startOff=0, offset=0, maxSlide=0, moved=0;
+
+  function apply(x){
+    maxSlide=strip.clientWidth;               // Band kann komplett rausgeschoben werden
+    offset=Math.max(0,Math.min(maxSlide,x));
+    band.style.transform="translateX("+offset+"px)";
+  }
+  function down(e){
+    dragging=true; moved=0;
+    startX=e.clientX; startOff=offset;
+    band.setPointerCapture&&band.setPointerCapture(e.pointerId);
+  }
+  function move(e){
+    if(!dragging) return;
+    const dx=e.clientX-startX;
+    moved=Math.max(moved,Math.abs(dx));
+    if(Math.abs(dx)>4) e.preventDefault();    // erst ab echter Horizontalbewegung greifen
+    apply(startOff+dx);
+  }
+  function up(){
+    if(!dragging) return;
+    dragging=false;
+  }
+  band.addEventListener("pointerdown",down);
+  band.addEventListener("pointermove",move);
+  band.addEventListener("pointerup",up);
+  band.addEventListener("pointercancel",up);
+})();
+
+try{ if(localStorage.getItem(STORE+"_gate")==="1"){ setTimeout(openApp,50); } }catch(e){}
+
+/* ============ APP / KARTE ============ */
+let map, markers={}, bearingLines=[], missMk=null, appReady=false;
+let found={};
+try{ found=JSON.parse(localStorage.getItem(STORE))||{}; }catch(e){ found={}; }
+function save(){ try{ localStorage.setItem(STORE,JSON.stringify(found)); }catch(e){} }
+function activeIndex(){ for(let i=0;i<OPS.length;i++){ if(!found[OPS[i].id]) return i; } return OPS.length; }
+
+function openApp(){
+  document.getElementById("gate").classList.add("hidden");
+  document.getElementById("app").classList.add("show");
+  if(!appReady){ initMap(); appReady=true; }
+  setTimeout(()=>map.invalidateSize(),100);
+}
+
+function initMap(){
+  map=L.map('map',{zoomControl:true,attributionControl:false}).setView([50.3788,10.0938],14);
+  // NUR Satellitenbild – KEIN Ortsnamen-Layer
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}).addTo(map);
+
+  map.on('click',(e)=>{
+    const idx=activeIndex(); if(idx>=OPS.length) return;
+    const op=OPS[idx];
+    const d=haversine(e.latlng.lat,e.latlng.lng,op.lat,op.lng);
+    if(d<=HIT_RADIUS_M){ reveal(op); }
+    else{
+      const fb=document.getElementById("fb_"+op.id);
+      if(fb){ fb.textContent=`Daneben (${Math.round(d)} m). Weiter ${dir(e.latlng.lat,e.latlng.lng,op.lat,op.lng)}.`; fb.className="fb no"; }
+      if(missMk) map.removeLayer(missMk);
+      missMk=L.circleMarker(e.latlng,{radius:7,color:'#e8b23a',weight:2,fillOpacity:0}).addTo(map);
+      setTimeout(()=>{ if(missMk){map.removeLayer(missMk); missMk=null;} },1400);
+    }
+  });
+
+  OPS.forEach(op=>{ if(found[op.id]) addMarker(op,false); });
+  renderBar(); renderDots();
+  if(activeIndex()>=OPS.length){
+    // Bereits alle Posten gefunden (Wiederherstellung nach Reload):
+    // Button anzeigen und Karte passend zoomen, aber das Schlussrätsel nicht aufdrängen.
+    document.getElementById("reopenFinal").classList.add("on");
+    map.flyToBounds(L.latLngBounds(OPS.map(o=>[o.lat,o.lng])).pad(0.18),{duration:1.0});
+  }
+}
+
+function haversine(la1,lo1,la2,lo2){
+  const R=6371000,r=Math.PI/180,dp=(la2-la1)*r,dl=(lo2-lo1)*r;
+  const a=Math.sin(dp/2)**2+Math.cos(la1*r)*Math.cos(la2*r)*Math.sin(dl/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+function dir(la1,lo1,la2,lo2){
+  const ns=la2-la1>0.0006?"nördlicher":la2-la1<-0.0006?"südlicher":"";
+  const ew=lo2-lo1>0.0006?"östlicher":lo2-lo1<-0.0006?"westlicher":"";
+  return (ns+" "+ew).trim()||"ganz nah dran";
+}
+
+function reveal(op){
+  found[op.id]=true; save();
+  addMarker(op,true);
+  renderBar(); renderDots();
+  map.panTo([op.lat,op.lng],{animate:true});
+  if(activeIndex()>=OPS.length){ setTimeout(finish,800); }
+}
+function addMarker(op,openPop){
+  if(markers[op.id]) return;
+  const ico=L.divIcon({className:'found-ico',html:`<div class="pin">${op.num}</div><div class="lbl">${op.name}</div>`,iconSize:[0,0]});
+  const m=L.marker([op.lat,op.lng],{icon:ico}).addTo(map);
+  const pop=`<div class="pop-name">${op.name}</div><div class="pop-story">${op.story}</div>${op.song?`<span class="pop-song">${op.song}</span>`:""}`;
+  m.bindPopup(pop,{maxWidth:260});
+  if(openPop) m.openPopup();
+  markers[op.id]=m;
+}
+
+const mbar=document.getElementById("mbar");
+function renderBar(){
+  const idx=activeIndex();
+  if(idx>=OPS.length){ mbar.innerHTML=""; return; }
+  const op=OPS[idx];
+  mbar.innerHTML=`
+    <div class="mcard">
+      <div class="top">
+        <div class="num">${op.num}</div>
+        <div><div class="name">${op.name}</div><div class="code">${op.code}</div></div>
+      </div>
+      <div class="txt">${op.riddle}</div>
+      ${ op.peil!=="—"
+         ? `<div class="peil"><div>PEILUNG <b>${op.peil}</b></div><div>DISTANZ <b>${op.dist}</b></div><div>${op.from}</div></div>`
+         : `<div class="peil"><div>${op.dist}</div><div>${op.from}</div></div>` }
+      <div class="aux">
+        <button data-hint="${op.id}">Hinweis</button>
+        ${op.song?`<button class="helpcard" data-song="1">${op.song}</button>`:""}
+      </div>
+      <div class="fb" id="fb_${op.id}"></div>
+      <div class="hint" id="hint_${op.id}">${op.hint}</div>
+    </div>`;
+}
+document.addEventListener("click",(e)=>{
+  const h=e.target.getAttribute("data-hint");
+  if(h){ const el=document.getElementById("hint_"+h); if(el) el.classList.toggle("show"); }
+  if(e.target.getAttribute("data-song")){ alert("Halte diese Hilfskarte in die Spotify-App (Suche → Kamera-Symbol → Spotify-Code scannen), um den Hinweis-Song zu hören."); }
+});
+
+function renderDots(){
+  const d=document.getElementById("dots"); d.innerHTML="";
+  OPS.forEach(op=>{ const s=document.createElement("div"); s.className="dot"+(found[op.id]?" on":"");
+    s.innerHTML=`<span>${op.num}</span>`; d.appendChild(s); });
+}
+
+function finish(){
+  // Kein Ziel-Marker, keine Peilungslinien — die Position bleibt verborgen,
+  // bis der Spieler die Koordinaten aus der Adresszeile selbst einträgt.
+  document.getElementById("reopenFinal").classList.add("on");
+  map.flyToBounds(L.latLngBounds(OPS.map(o=>[o.lat,o.lng])).pad(0.18),{duration:1.4});
+  setTimeout(()=>document.getElementById("final").classList.add("on"),1500);
+}
+
+/* ---- Koordinaten-Eingabe im Finale ---- */
+(function(){
+  const N_WHOLE="50", N_FRAC="1748", O_WHOLE="9", O_FRAC="9236";
+  const nW=document.getElementById("nWhole"), nF=document.getElementById("nFrac");
+  const oW=document.getElementById("oWhole"), oF=document.getElementById("oFrac");
+  const msg=document.getElementById("coordMsg");
+  const inBox=document.getElementById("coordIn");
+  const doneBox=document.getElementById("coordDone");
+  const hint=document.getElementById("coordHint");
+
+  // nur Ziffern zulassen
+  [nW,nF,oW,oF].forEach(el=>el.addEventListener("input",()=>{
+    el.value=el.value.replace(/\D/g,""); msg.textContent=""; msg.className="cmsg";
+  }));
+
+  document.getElementById("coordHintBtn").addEventListener("click",()=>{
+    hint.classList.toggle("show");
+  });
+
+  document.getElementById("coordCheck").addEventListener("click",()=>{
+    const ok = nW.value===N_WHOLE && nF.value===N_FRAC && oW.value===O_WHOLE && oF.value===O_FRAC;
+    if(ok){
+      const lat=`${N_WHOLE}.${N_FRAC}`, lng=`${O_WHOLE}.${O_FRAC}`;
+      document.getElementById("maplink").href=
+        `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+      inBox.classList.add("hide");
+      doneBox.classList.add("on");
+    }else{
+      msg.textContent="Koordinaten stimmen nicht. Sieh genauer hin.";
+      msg.className="cmsg err";
+    }
+  });
+})();
+document.getElementById("closeFinal").addEventListener("click",()=>document.getElementById("final").classList.remove("on"));
+document.getElementById("reopenFinal").addEventListener("click",()=>document.getElementById("final").classList.add("on"));
+
+document.getElementById("reset").addEventListener("click",()=>{
+  if(confirm("Kompletten Einsatz zurücksetzen (inkl. Schloss)?")){
+    try{ localStorage.removeItem(STORE); localStorage.removeItem(STORE+"_gate"); }catch(e){}
+    location.reload();
+  }
+});
+</script>
+</body>
+</html>
