@@ -322,7 +322,7 @@ const OPS = [
     lat:50.39710057621117, lng:10.07968748580798,
     riddle:"Grün, kurz gehalten, ordentlich gestutzt. Hier drehte sich einst alles im Kreis — mit Maske im Gesicht wurde das Rote Ross gezügelt.",
     peil:"—", dist:"START", from:"nördlichster Punkt",
-    hint:"Ein Film der Extraklasse, fast wie in Hollywood",
+    hint:"» Siehe Hilfskarte 1",
     story:"Hier entstand das legendäre Video: einer mit Scream-Maske am Steuer des Roten Rasenmähers, im Hintergrund „they see me rollin’“. Kunst war das, aber echt!",
     good:"Schreiendes Grün gesichert." },
 
@@ -330,7 +330,7 @@ const OPS = [
     lat:50.39271773158123, lng:10.07443946349211,
     riddle:"Vom Start fast genau nach SÜDWESTEN, keine 650 Schritt. 2012, Ein Feld, Wände BALLEN sich auf, zwei Zelte, dröhnende Bässe — und ein Schuss, der’s in sich hatte.",
     peil:"217° SW", dist:"≈ 0,6 km", from:"ab Posten 1",
-    hint:"Ich hätt’ gern noch so’n Bier mit Schuss!",
+    hint:"» Siehe Hilfskarte 2",
     story:"Die Party „Bibabasstoma\": zwei Zelte, Heuballen als Schallschutz, Suppe überm Feuer, die nicht warm wurde. Und weil kein Löffel mehr da war, wurde der Akkudeckel des Handys zweckentfremdet. Wahre Ingenieurskunst.",
     good:"Löffelchenstellung eingenommen!" },
 
@@ -338,7 +338,7 @@ const OPS = [
     lat:50.38788034355543, lng:10.08526073466564,
     riddle:"Weiter nach SÜDOSTEN, knapp einen Kilometer. Wo man bei angemessenem Pegel und aufsteigender Sonne in die Kronen steigt.",
     peil:"125° SO", dist:"≈ 0,9 km", from:"ab Posten 2",
-    hint:"Let's Rogge",
+    hint:"» Siehe Hilfskarte 3",
     story:"Feier an Rogges Hütte. Als es hell wurde, ging's rauf auf den Baum für Sonnenaufgangs-Selfies. Aus unerfindlichen Gründen leuchtete ein Gesicht knallrot.",
     good:"Wo Affen klettern — Baumwipfel erreicht." },
 
@@ -346,7 +346,7 @@ const OPS = [
     lat:50.36984326789647, lng:10.1024709769877,
     riddle:"Weiter nach SÜDOSTEN, gut zwei Kilometer. Ein Berg mit großem Namen und bescheidener Herkunft — aufgeschüttet aus dem, was andere wegwarfen.",
     peil:"149° SO", dist:"≈ 2,3 km", from:"ab Posten 3",
-    hint:"Siehst du das Feuerwerk?",
+    hint:"» Siehe Hilfskarte 4",
     story:"Der Monte Krippelino, ein alter Bauschuttberg. An Silvester gegen Mitternacht von Wegfurt hochgelaufen, um das Feuerwerk überm Rhön-Grabfeld zu sehen — Bad Neustadt lag klar im Blick. Danach weiter feiern nach Burgwallbach, im Morgengrauen zurück, gegen 7 wieder da. Omas Kehrbesen war schon im Einsatz.",
     good:"Berg voll Dreck erklommen." },
 
@@ -354,7 +354,7 @@ const OPS = [
     lat:50.36044627690244, lng:10.11323278748811,
     riddle:"Letzter Stützpunkt: nochmals nach SÜDOSTEN, gut einen Kilometer. Die Partys waren Lägendär, könnte man vermuten.",
     peil:"144° SO", dist:"≈ 1,3 km", from:"ab Posten 4",
-    hint:"Wo der Ball rollt und im Sommer die Bässe liefen — mit einer Tür, die im Dunkeln leuchtete.",
+    hint:"» Siehe Hilfskarte 5",
     story:"Das Sportheim Burgwallbach: Geburtstage, „Wir beaten Euch\", der Summerbeat unter freiem Himmel mit Tube & Berger. Und die legendäre selbstgebaute leuchtende DJ-Tür samt Leuchtwürfeln.",
     good:"Alle Stützpunkte enttarnt. Endanflug freigegeben!" },
 ];
@@ -523,7 +523,7 @@ function renderBar(){
          ? `<div class="peil"><div>PEILUNG <b>${op.peil}</b></div><div>DISTANZ <b>${op.dist}</b></div><div>${op.from}</div></div>`
          : `<div class="peil"><div>${op.dist}</div><div>${op.from}</div></div>` }
       <div class="aux">
-        <button data-hint="${op.id}">Hinweis</button>
+        <button data-hint="${op.id}">Hilfskarte anfordern</button>
       </div>
       <div class="fb" id="fb_${op.id}"></div>
       <div class="hint" id="hint_${op.id}">${op.hint}</div>
