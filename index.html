@@ -41,21 +41,43 @@
   .lock-label{ text-align:center; font-size:.66rem; letter-spacing:.28em; color:var(--khaki); margin-bottom:12px; text-transform:uppercase; }
   .dials{ display:flex; gap:10px; justify-content:center; }
   .dial{
-    width:58px; background:linear-gradient(180deg,#111,#2a2a24,#111);
-    border:2px solid #000; border-radius:8px; overflow:hidden; position:relative;
-    box-shadow:inset 0 0 12px rgba(0,0,0,.8);
+    width:58px; border:2px solid #000; border-radius:8px; position:relative;
+    background:linear-gradient(180deg,#0d0d0a,#26261f 50%,#0d0d0a);
+    box-shadow:inset 0 0 12px rgba(0,0,0,.85);
   }
-  .dial .num{ touch-action:none; cursor:ns-resize; }
   .dial .up,.dial .down{
-    height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;
-    color:var(--danger); font-size:1.1rem; user-select:none; background:rgba(232,178,58,.06);
+    height:26px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+    color:var(--danger); font-size:1rem; user-select:none; background:rgba(232,178,58,.06);
+    position:relative; z-index:3;
   }
   .dial .up:active,.dial .down:active{ background:rgba(232,178,58,.22); }
-  .dial .num{
-    height:64px; display:flex; align-items:center; justify-content:center;
-    font-size:2.2rem; font-weight:700; color:var(--sand);
+  /* Sichtfenster der Walze */
+  .dial .reel-window{
+    height:64px; position:relative; overflow:hidden; touch-action:none; cursor:ns-resize;
+    perspective:220px; border-top:1px solid #000; border-bottom:1px solid #000;
     background:repeating-linear-gradient(180deg,#1c1c17,#1c1c17 2px,#232319 2px,#232319 4px);
-    text-shadow:0 2px 4px #000; border-top:1px solid #000; border-bottom:1px solid #000;
+  }
+  /* rotierender Zylinder */
+  .dial .reel{
+    position:absolute; left:0; right:0; top:50%; height:0;
+    transform-style:preserve-3d; will-change:transform;
+  }
+  .dial .reel .tick{
+    position:absolute; left:0; right:0; height:64px; top:-32px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.6rem; font-weight:700; color:var(--sand);
+    text-shadow:0 2px 4px #000; backface-visibility:hidden;
+  }
+  /* Schatten oben/unten fürs Walzengefühl */
+  .dial .reel-window::before{
+    content:""; position:absolute; inset:0; z-index:2; pointer-events:none;
+    background:linear-gradient(180deg,rgba(8,8,6,.95),rgba(8,8,6,.35) 40%,rgba(8,8,6,.35) 60%,rgba(8,8,6,.95));
+  }
+  /* Markierungslinien der aktuellen Position */
+  .dial .reel-window::after{
+    content:""; position:absolute; left:0; right:0; top:50%; transform:translateY(-50%);
+    height:34px; z-index:1; pointer-events:none;
+    border-top:1px solid rgba(232,178,58,.22); border-bottom:1px solid rgba(232,178,58,.22);
   }
   .lock-actions{ display:flex; gap:10px; margin-top:16px; justify-content:center; }
   .lock-actions button{
@@ -361,50 +383,95 @@ const OPS = [
 ];
 
 
-/* ============ SCHLOSS ============ */
+/* ============ SCHLOSS (rotierende Walzen) ============ */
 const dialState = Array(DIALS).fill(0);
 const dialsEl = document.getElementById("dials");
+const STEP_DEG = 36;             // 360° / 10 Ziffern
+const RADIUS = 48;               // Zylinderradius in px (größer = mehr Abstand zwischen Ziffern)
+const reels = [];                // { el, angle } je Walze
+
 for(let i=0;i<DIALS;i++){
   const d=document.createElement("div"); d.className="dial";
+  let ticks="";
+  for(let n=0;n<10;n++){
+    // Ziffer n sitzt bei -n*36° auf dem Zylinder, nach vorne geschoben
+    ticks += `<div class="tick" style="transform:rotateX(${-n*STEP_DEG}deg) translateZ(${RADIUS}px)">${n}</div>`;
+  }
   d.innerHTML=`<div class="up" data-i="${i}" data-dir="1">▲</div>
-               <div class="num" id="num${i}" data-i="${i}">0</div>
+               <div class="reel-window" data-i="${i}">
+                 <div class="reel" id="reel${i}">${ticks}</div>
+               </div>
                <div class="down" data-i="${i}" data-dir="-1">▼</div>`;
   dialsEl.appendChild(d);
+  reels.push({ el:d.querySelector("#reel"+i), angle:0 });
 }
-function setDial(idx,delta){
-  dialState[idx]=(dialState[idx]+delta+10)%10;
-  document.getElementById("num"+idx).textContent=dialState[idx];
+
+function renderReel(idx){
+  reels[idx].el.style.transform = `rotateX(${reels[idx].angle}deg)`;
 }
+function syncStateFromAngle(idx){
+  // aktuell sichtbare Ziffer = angle/36 (mod 10)
+  let n = Math.round(reels[idx].angle / STEP_DEG) % 10;
+  n = (n%10+10)%10;
+  dialState[idx] = n;
+}
+// alle Walzen initial rendern
+for(let i=0;i<DIALS;i++) renderReel(i);
+
+// eine Ziffer weiterdrehen (mit Einrasten + sanfter Animation)
+function stepDial(idx,delta){
+  reels[idx].el.style.transition="transform .18s cubic-bezier(.2,.7,.3,1)";
+  reels[idx].angle += delta*STEP_DEG;
+  renderReel(idx);
+  syncStateFromAngle(idx);
+  clearTimeout(reels[idx]._t);
+  reels[idx]._t=setTimeout(()=>reels[idx].el.style.transition="",190);
+}
+
 // Pfeile antippen
 dialsEl.addEventListener("click",(e)=>{
   const i=e.target.getAttribute("data-i"); const dir=e.target.getAttribute("data-dir");
   if(i===null||dir===null) return;
-  setDial(+i,+dir);
+  // nach oben = nächsthöhere Ziffer erscheint = Zylinder dreht +36°
+  stepDial(+i, +dir);
 });
-// Mausrad über einem Rad
+// Mausrad
 dialsEl.addEventListener("wheel",(e)=>{
-  const num=e.target.closest(".num"); if(!num) return;
+  const win=e.target.closest(".reel-window"); if(!win) return;
   e.preventDefault();
-  setDial(+num.getAttribute("data-i"), e.deltaY<0?1:-1);
+  stepDial(+win.getAttribute("data-i"), e.deltaY<0?1:-1);
 },{passive:false});
-// Vertikales Wischen/Ziehen auf der Ziffer
+
+// Wischen: Walze folgt dem Finger live, rastet beim Loslassen ein
 (function(){
-  const STEP=22;            // Pixel pro Ziffernschritt
-  let active=null, startY=0, accum=0;
+  const PX_PER_DEG = 0.9;        // Empfindlichkeit: px Wischweg pro Grad
+  let active=null, startY=0, baseAngle=0;
   dialsEl.addEventListener("pointerdown",(e)=>{
-    const num=e.target.closest(".num"); if(!num) return;
-    active=+num.getAttribute("data-i"); startY=e.clientY; accum=0;
-    num.setPointerCapture&&num.setPointerCapture(e.pointerId);
+    const win=e.target.closest(".reel-window"); if(!win) return;
+    active=+win.getAttribute("data-i"); startY=e.clientY; baseAngle=reels[active].angle;
+    reels[active].el.style.transition="";
+    win.setPointerCapture&&win.setPointerCapture(e.pointerId);
   });
   dialsEl.addEventListener("pointermove",(e)=>{
     if(active===null) return;
     const dy=e.clientY-startY;
-    // nach oben wischen erhöht (dy negativ -> +1)
-    while(dy-accum <= -STEP){ setDial(active, 1); accum-=STEP; }
-    while(dy-accum >=  STEP){ setDial(active,-1); accum+=STEP; }
+    // nach oben wischen (dy negativ) -> Ziffern laufen aufwärts -> Winkel steigt
+    reels[active].angle = baseAngle + (-dy)/PX_PER_DEG;
+    renderReel(active);
     e.preventDefault();
   });
-  function end(){ active=null; }
+  function end(){
+    if(active===null) return;
+    const idx=active; active=null;
+    // auf nächstes 36°-Vielfache einrasten
+    const snapped = Math.round(reels[idx].angle/STEP_DEG)*STEP_DEG;
+    reels[idx].el.style.transition="transform .2s cubic-bezier(.2,.7,.3,1)";
+    reels[idx].angle = snapped;
+    renderReel(idx);
+    syncStateFromAngle(idx);
+    clearTimeout(reels[idx]._t);
+    reels[idx]._t=setTimeout(()=>reels[idx].el.style.transition="",210);
+  }
   dialsEl.addEventListener("pointerup",end);
   dialsEl.addEventListener("pointercancel",end);
 })();
