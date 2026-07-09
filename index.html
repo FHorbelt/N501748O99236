@@ -451,7 +451,7 @@ function openApp(){
 }
 
 function initMap(){
-  map=L.map('map',{zoomControl:true,attributionControl:false}).setView([50.3788,10.0938],14);
+  map=L.map('map',{zoomControl:false,attributionControl:false}).setView([50.3788,10.0938],14);
   // NUR Satellitenbild – KEIN Ortsnamen-Layer
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}).addTo(map);
 
