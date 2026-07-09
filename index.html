@@ -152,7 +152,6 @@
   .mcard .aux{ display:flex; gap:8px; flex-wrap:wrap; margin-top:9px; }
   .mcard .aux button{ font-family:inherit; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
     font-size:.68rem; padding:7px 11px; border:1px solid var(--khaki); background:transparent; color:var(--khaki); cursor:pointer; }
-  .mcard .helpcard{ background:var(--danger)!important; color:var(--steel)!important; border-color:var(--danger)!important; }
   .mcard .fb{ margin-top:7px; font-size:.78rem; min-height:1em; }
   .mcard .fb.no{ color:var(--danger); } .mcard .fb.ok{ color:#a9d47a; }
   .mcard .hint{ display:none; margin-top:7px; font-size:.76rem; font-style:italic; color:var(--khaki); background:rgba(0,0,0,.28); padding:7px; }
@@ -175,7 +174,6 @@
   .leaflet-popup-content{ margin:12px 14px; font-family:inherit; }
   .pop-name{ font-weight:700; text-transform:uppercase; color:var(--danger); font-size:1rem; margin-bottom:4px; }
   .pop-story{ font-size:.82rem; line-height:1.5; color:var(--sand); }
-  .pop-song{ display:inline-block; margin-top:8px; font-size:.72rem; background:var(--danger); color:var(--steel); padding:5px 9px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
 
   /* Finale-Overlay */
   #final{ position:absolute; inset:0; z-index:900; display:none; align-items:center; justify-content:center; padding:22px;
@@ -326,7 +324,6 @@ const OPS = [
     peil:"—", dist:"START", from:"nördlichster Punkt",
     hint:"Ein Film der Extraklasse, fast wie in Hollywood",
     story:"Hier entstand das legendäre Video: einer mit Scream-Maske am Steuer des Roten Rasenmähers, im Hintergrund „they see me rollin’“. Kunst war das, aber echt!",
-    song:"🎵 Hilfskarte 1 scannen",
     good:"Schreiendes Grün gesichert." },
 
   { id:"op2", num:"2", name:"Stellung einnehmen!", code:"CODENAME: Löffelchen",
@@ -335,7 +332,6 @@ const OPS = [
     peil:"217° SW", dist:"≈ 0,6 km", from:"ab Posten 1",
     hint:"Ich hätt’ gern noch so’n Bier mit Schuss!",
     story:"Die Party „Bibabasstoma\": zwei Zelte, Heuballen als Schallschutz, Suppe überm Feuer, die nicht warm wurde. Und weil kein Löffel mehr da war, wurde der Akkudeckel des Handys zweckentfremdet. Wahre Ingenieurskunst.",
-    song:"",
     good:"Löffelchenstellung eingenommen!" },
 
   { id:"op3", num:"3", name:"Wo Affen klettern", code:"CODENAME: SONNENRÖTE",
@@ -344,7 +340,6 @@ const OPS = [
     peil:"125° SO", dist:"≈ 0,9 km", from:"ab Posten 2",
     hint:"Let's Rogge",
     story:"Feier an Rogges Hütte. Als es hell wurde, ging's rauf auf den Baum für Sonnenaufgangs-Selfies. Aus unerfindlichen Gründen leuchtete ein Gesicht knallrot.",
-    song:"🎵 Hilfskarte 2 scannen",
     good:"Wo Affen klettern — Baumwipfel erreicht." },
 
   { id:"op4", num:"4", name:"Ich hab nen Berg voll Dreck", code:"CODENAME: SILVESTER Stallone",
@@ -353,7 +348,6 @@ const OPS = [
     peil:"149° SO", dist:"≈ 2,3 km", from:"ab Posten 3",
     hint:"Siehst du das Feuerwerk?",
     story:"Der Monte Krippelino, ein alter Bauschuttberg. An Silvester gegen Mitternacht von Wegfurt hochgelaufen, um das Feuerwerk überm Rhön-Grabfeld zu sehen — Bad Neustadt lag klar im Blick. Danach weiter feiern nach Burgwallbach, im Morgengrauen zurück, gegen 7 wieder da. Omas Kehrbesen war schon im Einsatz.",
-    song:"",
     good:"Berg voll Dreck erklommen." },
 
   { id:"op5", num:"5", name:"Die Leuchtende Tür", code:"CODENAME: SOMMERSCHLAG",
@@ -362,7 +356,6 @@ const OPS = [
     peil:"144° SO", dist:"≈ 1,3 km", from:"ab Posten 4",
     hint:"Wo der Ball rollt und im Sommer die Bässe liefen — mit einer Tür, die im Dunkeln leuchtete.",
     story:"Das Sportheim Burgwallbach: Geburtstage, „Wir beaten Euch\", der Summerbeat unter freiem Himmel mit Tube & Berger. Und die legendäre selbstgebaute leuchtende DJ-Tür samt Leuchtwürfeln.",
-    song:"🎵 Hilfskarte 3 scannen",
     good:"Alle Stützpunkte enttarnt. Endanflug freigegeben!" },
 ];
 
@@ -508,7 +501,7 @@ function addMarker(op,openPop){
   if(markers[op.id]) return;
   const ico=L.divIcon({className:'found-ico',html:`<div class="pin">${op.num}</div><div class="lbl">${op.name}</div>`,iconSize:[0,0]});
   const m=L.marker([op.lat,op.lng],{icon:ico}).addTo(map);
-  const pop=`<div class="pop-name">${op.name}</div><div class="pop-story">${op.story}</div>${op.song?`<span class="pop-song">${op.song}</span>`:""}`;
+  const pop=`<div class="pop-name">${op.name}</div><div class="pop-story">${op.story}</div>`;
   m.bindPopup(pop,{maxWidth:260});
   if(openPop) m.openPopup();
   markers[op.id]=m;
@@ -531,7 +524,6 @@ function renderBar(){
          : `<div class="peil"><div>${op.dist}</div><div>${op.from}</div></div>` }
       <div class="aux">
         <button data-hint="${op.id}">Hinweis</button>
-        ${op.song?`<button class="helpcard" data-song="1">${op.song}</button>`:""}
       </div>
       <div class="fb" id="fb_${op.id}"></div>
       <div class="hint" id="hint_${op.id}">${op.hint}</div>
@@ -540,7 +532,6 @@ function renderBar(){
 document.addEventListener("click",(e)=>{
   const h=e.target.getAttribute("data-hint");
   if(h){ const el=document.getElementById("hint_"+h); if(el) el.classList.toggle("show"); }
-  if(e.target.getAttribute("data-song")){ alert("Halte diese Hilfskarte in die Spotify-App (Suche → Kamera-Symbol → Spotify-Code scannen), um den Hinweis-Song zu hören."); }
 });
 
 function renderDots(){
