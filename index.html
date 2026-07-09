@@ -45,6 +45,7 @@
     border:2px solid #000; border-radius:8px; overflow:hidden; position:relative;
     box-shadow:inset 0 0 12px rgba(0,0,0,.8);
   }
+  .dial .num{ touch-action:none; cursor:ns-resize; }
   .dial .up,.dial .down{
     height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;
     color:var(--danger); font-size:1.1rem; user-select:none; background:rgba(232,178,58,.06);
@@ -366,16 +367,47 @@ const dialsEl = document.getElementById("dials");
 for(let i=0;i<DIALS;i++){
   const d=document.createElement("div"); d.className="dial";
   d.innerHTML=`<div class="up" data-i="${i}" data-dir="1">▲</div>
-               <div class="num" id="num${i}">0</div>
+               <div class="num" id="num${i}" data-i="${i}">0</div>
                <div class="down" data-i="${i}" data-dir="-1">▼</div>`;
   dialsEl.appendChild(d);
 }
+function setDial(idx,delta){
+  dialState[idx]=(dialState[idx]+delta+10)%10;
+  document.getElementById("num"+idx).textContent=dialState[idx];
+}
+// Pfeile antippen
 dialsEl.addEventListener("click",(e)=>{
   const i=e.target.getAttribute("data-i"); const dir=e.target.getAttribute("data-dir");
-  if(i===null) return;
-  const idx=+i; dialState[idx]=(dialState[idx]+(+dir)+10)%10;
-  document.getElementById("num"+idx).textContent=dialState[idx];
+  if(i===null||dir===null) return;
+  setDial(+i,+dir);
 });
+// Mausrad über einem Rad
+dialsEl.addEventListener("wheel",(e)=>{
+  const num=e.target.closest(".num"); if(!num) return;
+  e.preventDefault();
+  setDial(+num.getAttribute("data-i"), e.deltaY<0?1:-1);
+},{passive:false});
+// Vertikales Wischen/Ziehen auf der Ziffer
+(function(){
+  const STEP=22;            // Pixel pro Ziffernschritt
+  let active=null, startY=0, accum=0;
+  dialsEl.addEventListener("pointerdown",(e)=>{
+    const num=e.target.closest(".num"); if(!num) return;
+    active=+num.getAttribute("data-i"); startY=e.clientY; accum=0;
+    num.setPointerCapture&&num.setPointerCapture(e.pointerId);
+  });
+  dialsEl.addEventListener("pointermove",(e)=>{
+    if(active===null) return;
+    const dy=e.clientY-startY;
+    // nach oben wischen erhöht (dy negativ -> +1)
+    while(dy-accum <= -STEP){ setDial(active, 1); accum-=STEP; }
+    while(dy-accum >=  STEP){ setDial(active,-1); accum+=STEP; }
+    e.preventDefault();
+  });
+  function end(){ active=null; }
+  dialsEl.addEventListener("pointerup",end);
+  dialsEl.addEventListener("pointercancel",end);
+})();
 document.getElementById("unlock").addEventListener("click",()=>{
   const entered=dialState.join("");
   const msg=document.getElementById("lockMsg");
