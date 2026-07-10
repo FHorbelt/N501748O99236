@@ -223,9 +223,14 @@
     padding:22px; background:rgba(6,6,4,.78); backdrop-filter:blur(2px); }
   .sheet.on{ display:flex; animation:sheetFade .18s ease; }
   @keyframes sheetFade{ from{ opacity:0; } to{ opacity:1; } }
-  .sheet-box{ width:100%; max-width:440px; max-height:86vh; overflow-y:auto;
+  .sheet-box{ width:100%; max-width:440px; max-height:86vh; overflow-y:auto; position:relative;
     background:linear-gradient(180deg,#211d17,#1a1712); border:2px solid var(--danger); border-radius:6px;
     box-shadow:0 18px 50px rgba(0,0,0,.7); }
+  .sheet-corner{ position:absolute; top:20px; right:12px; z-index:5; width:30px; height:30px;
+    display:flex; align-items:center; justify-content:center; border-radius:50%;
+    background:rgba(232,178,58,.12); border:1px solid var(--khaki); color:var(--danger);
+    font-family:inherit; font-weight:700; font-size:1rem; cursor:pointer; line-height:1; }
+  .sheet-corner:active{ background:rgba(232,178,58,.28); }
   .sheet-band{ height:14px; background:repeating-linear-gradient(45deg,var(--danger),var(--danger) 11px,#111 11px,#111 22px); }
   .sheet-title{ text-align:center; color:var(--danger); font-weight:700; letter-spacing:.14em;
     text-transform:uppercase; font-size:1.05rem; padding:16px 18px 6px; text-shadow:1px 1px 0 #000; }
@@ -251,7 +256,7 @@
     letter-spacing:.14em; border-radius:3px; -webkit-appearance:none; }
   .crow input:focus{ outline:none; border-color:var(--danger); box-shadow:0 0 0 2px rgba(232,178,58,.25); }
   .crow input::placeholder{ color:#5a564a; letter-spacing:.14em; }
-  .crow .cwhole{ width:2.6em; }
+  .crow .cfixed{ color:var(--sand); font-weight:700; font-size:1.3rem; letter-spacing:.06em; }
   .crow .cfrac{ width:5.2em; }
   .cbtns{ display:flex; gap:8px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
   .cbtns button{ font-family:inherit; font-weight:700; cursor:pointer; padding:10px 16px;
@@ -325,14 +330,12 @@
       <div class="coord-in" id="coordIn">
         <div class="crow">
           <span class="cpref">N</span>
-          <input class="cwhole" id="nWhole" inputmode="numeric" maxlength="2" placeholder="50" aria-label="Nord, Grad">
-          <span class="cdot">,</span>
+          <span class="cfixed">50,</span>
           <input class="cfrac" id="nFrac" inputmode="numeric" maxlength="4" placeholder="––––" aria-label="Nord, Nachkomma">
         </div>
         <div class="crow">
           <span class="cpref">O</span>
-          <input class="cwhole" id="oWhole" inputmode="numeric" maxlength="1" placeholder="9" aria-label="Ost, Grad">
-          <span class="cdot">,</span>
+          <span class="cfixed">9,</span>
           <input class="cfrac" id="oFrac" inputmode="numeric" maxlength="4" placeholder="––––" aria-label="Ost, Nachkomma">
         </div>
         <div class="cbtns">
@@ -340,7 +343,7 @@
           <button class="ghost" id="coordHintBtn">Hinweis</button>
         </div>
         <div class="cmsg" id="coordMsg"></div>
-        <div class="chint" id="coordHint">Die Adresse ist die Lösung. 6 Werte für den Norden, 5 Werte für den Osten.</div>
+        <div class="chint" id="coordHint">Schau mal in der Adresszeile!</div>
       </div>
 
       <div class="coord-done" id="coordDone">
@@ -360,6 +363,7 @@
 <div id="sheet" class="sheet">
   <div class="sheet-box">
     <div class="sheet-band"></div>
+    <button class="sheet-corner" id="sheetCorner" style="display:none"></button>
     <div class="sheet-title" id="sheetTitle">ERMITTLUNGSHILFE</div>
     <div class="sheet-body" id="sheetBody"></div>
     <div class="sheet-actions" id="sheetActions"></div>
@@ -578,7 +582,7 @@ document.getElementById("unlock").addEventListener("click",()=>{
 });
 /* Generisches Overlay-Sheet */
 const sheetEl=document.getElementById("sheet");
-function showSheet(title, bodyHTML, buttons){
+function showSheet(title, bodyHTML, buttons, corner){
   document.getElementById("sheetTitle").textContent=title;
   document.getElementById("sheetBody").innerHTML=bodyHTML;
   const act=document.getElementById("sheetActions"); act.innerHTML="";
@@ -588,18 +592,40 @@ function showSheet(title, bodyHTML, buttons){
     el.addEventListener("click",()=>{ if(b.onClick) b.onClick(); if(!b.keepOpen) hideSheet(); });
     act.appendChild(el);
   });
+  const cb=document.getElementById("sheetCorner");
+  const nc=cb.cloneNode(true); cb.parentNode.replaceChild(nc,cb);   // alte Listener entfernen
+  if(corner){
+    nc.textContent=corner.label; nc.title=corner.title||"";
+    nc.style.display="flex";
+    nc.addEventListener("click",()=>{ if(corner.onClick) corner.onClick(); });
+  } else {
+    nc.style.display="none";
+  }
   sheetEl.classList.add("on");
 }
 function hideSheet(){ sheetEl.classList.remove("on"); }
 sheetEl.addEventListener("click",(e)=>{ if(e.target===sheetEl) hideSheet(); });
 
-document.getElementById("showRiddle").addEventListener("click",()=>{
+function showHint1(){
   showSheet("ERMITTLUNGSHILFE",
     '<span class="roman">M = 1000\nD = 500\nC = 100\nL = 50\nX = 10\nV = 5\nI = 1</span>'
     + 'Nicht alles auf diesem Schirm sitzt fest. Manches lässt sich aufdecken oder zur Seite schieben.\n\n'
     + 'Konntest du drei Zahlen finden — eine auf der Startkarte, zwei auf diesem Bildschirm? Dann zähle sie zusammen und öffne das Schloss!',
-    [{label:"Verstanden", primary:true}]);
-});
+    [{label:"Verstanden", primary:true}],
+    {label:"?", title:"Noch ein Hinweis", onClick:showHint2});
+}
+function showHint2(){
+  showSheet("RÖMISCHE ZIFFERN",
+    'So liest du MCMXCVI:\n\n'
+    + '<span class="roman">M      = 1000\nCM     = 900   (1000 − 100)\nXC     = 90    (100 − 10)\nVI     = 6     (5 + 1)</span>'
+    + 'Steht ein kleineres Zeichen vor einem größeren, wird es abgezogen — sonst addiert.\n\n'
+    + '1000 + 900 + 90 + 6 = 1996',
+    [
+      {label:"Alles klar", primary:true},
+      {label:"Zurück", onClick:showHint1, keepOpen:true}
+    ]);
+}
+document.getElementById("showRiddle").addEventListener("click",showHint1);
 
 /* Verstecktes Fundstück: Siegel antippen deckt die Kerzenzahl (30) auf */
 document.getElementById("gateSeal").addEventListener("click",()=>{
@@ -659,9 +685,10 @@ function openApp(){
 }
 
 function initMap(){
-  map=L.map('map',{zoomControl:false,attributionControl:false}).setView([50.3788,10.0938],14);
-  // NUR Satellitenbild – KEIN Ortsnamen-Layer
+  map=L.map('map',{zoomControl:false,attributionControl:false}).setView([50.3945,10.0755],14);
+  // Satellitenbild + Ortsnamen-Ebene darüber
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}).addTo(map);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,opacity:0.9}).addTo(map);
 
   map.on('click',(e)=>{
     const idx=activeIndex(); if(idx>=OPS.length) return;
@@ -759,15 +786,15 @@ function finish(){
 /* ---- Koordinaten-Eingabe im Finale ---- */
 (function(){
   const N_WHOLE="50", N_FRAC="1748", O_WHOLE="9", O_FRAC="9236";
-  const nW=document.getElementById("nWhole"), nF=document.getElementById("nFrac");
-  const oW=document.getElementById("oWhole"), oF=document.getElementById("oFrac");
+  const nF=document.getElementById("nFrac");
+  const oF=document.getElementById("oFrac");
   const msg=document.getElementById("coordMsg");
   const inBox=document.getElementById("coordIn");
   const doneBox=document.getElementById("coordDone");
   const hint=document.getElementById("coordHint");
 
   // nur Ziffern zulassen
-  [nW,nF,oW,oF].forEach(el=>el.addEventListener("input",()=>{
+  [nF,oF].forEach(el=>el.addEventListener("input",()=>{
     el.value=el.value.replace(/\D/g,""); msg.textContent=""; msg.className="cmsg";
   }));
 
@@ -776,7 +803,7 @@ function finish(){
   });
 
   document.getElementById("coordCheck").addEventListener("click",()=>{
-    const ok = nW.value===N_WHOLE && nF.value===N_FRAC && oW.value===O_WHOLE && oF.value===O_FRAC;
+    const ok = nF.value===N_FRAC && oF.value===O_FRAC;
     if(ok){
       const lat=`${N_WHOLE}.${N_FRAC}`, lng=`${O_WHOLE}.${O_FRAC}`;
       document.getElementById("maplink").href=
