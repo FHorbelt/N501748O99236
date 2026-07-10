@@ -218,6 +218,26 @@
   #final .close{ display:block; margin:14px auto 0; background:none; border:1px solid var(--khaki); color:var(--khaki);
     font-family:inherit; font-size:.7rem; padding:6px 12px; cursor:pointer; letter-spacing:.1em; text-transform:uppercase; }
 
+  /* Generisches Overlay (Ermittlungshilfe, Reset-Bestätigung) */
+  .sheet{ position:fixed; inset:0; z-index:1200; display:none; align-items:center; justify-content:center;
+    padding:22px; background:rgba(6,6,4,.78); backdrop-filter:blur(2px); }
+  .sheet.on{ display:flex; animation:sheetFade .18s ease; }
+  @keyframes sheetFade{ from{ opacity:0; } to{ opacity:1; } }
+  .sheet-box{ width:100%; max-width:440px; max-height:86vh; overflow-y:auto;
+    background:linear-gradient(180deg,#211d17,#1a1712); border:2px solid var(--danger); border-radius:6px;
+    box-shadow:0 18px 50px rgba(0,0,0,.7); }
+  .sheet-band{ height:14px; background:repeating-linear-gradient(45deg,var(--danger),var(--danger) 11px,#111 11px,#111 22px); }
+  .sheet-title{ text-align:center; color:var(--danger); font-weight:700; letter-spacing:.14em;
+    text-transform:uppercase; font-size:1.05rem; padding:16px 18px 6px; text-shadow:1px 1px 0 #000; }
+  .sheet-body{ color:var(--sand); font-size:.9rem; line-height:1.5; padding:6px 22px 4px; white-space:pre-line; }
+  .sheet-body .roman{ display:block; font-family:"Courier New",monospace; color:var(--khaki);
+    letter-spacing:.1em; margin:2px 0 12px; }
+  .sheet-actions{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; padding:14px 18px 20px; }
+  .sheet-actions button{ font-family:inherit; font-weight:700; cursor:pointer; padding:11px 18px; border-radius:3px;
+    text-transform:uppercase; letter-spacing:.08em; font-size:.78rem; }
+  .sheet-actions .primary{ background:var(--danger); color:var(--steel); border:none; }
+  .sheet-actions .ghost{ background:none; border:1px solid var(--khaki); color:var(--khaki); }
+
   /* Koordinaten-Eingabe im Finale */
   .coord-in{ margin:16px 0 4px; }
   .coord-done{ display:none; margin:16px 0 4px; }
@@ -335,6 +355,16 @@
 
   <button class="reopen" id="reopenFinal">◎ Schlussrätsel</button>
   <button class="reset" id="reset">Reset</button>
+</div>
+
+<div id="sheet" class="sheet">
+  <div class="sheet-box">
+    <div class="sheet-band"></div>
+    <div class="sheet-title" id="sheetTitle">ERMITTLUNGSHILFE</div>
+    <div class="sheet-body" id="sheetBody"></div>
+    <div class="sheet-actions" id="sheetActions"></div>
+    <div class="sheet-band"></div>
+  </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -546,8 +576,29 @@ document.getElementById("unlock").addEventListener("click",()=>{
     setTimeout(()=>document.querySelector(".lock").classList.remove("shake"),450);
   }
 });
+/* Generisches Overlay-Sheet */
+const sheetEl=document.getElementById("sheet");
+function showSheet(title, bodyHTML, buttons){
+  document.getElementById("sheetTitle").textContent=title;
+  document.getElementById("sheetBody").innerHTML=bodyHTML;
+  const act=document.getElementById("sheetActions"); act.innerHTML="";
+  (buttons||[{label:"Verstanden"}]).forEach(b=>{
+    const el=document.createElement("button");
+    el.className=b.primary?"primary":"ghost"; el.textContent=b.label;
+    el.addEventListener("click",()=>{ if(b.onClick) b.onClick(); if(!b.keepOpen) hideSheet(); });
+    act.appendChild(el);
+  });
+  sheetEl.classList.add("on");
+}
+function hideSheet(){ sheetEl.classList.remove("on"); }
+sheetEl.addEventListener("click",(e)=>{ if(e.target===sheetEl) hideSheet(); });
+
 document.getElementById("showRiddle").addEventListener("click",()=>{
-  alert("ERMITTLUNGSHILFE\n\nKonntest du drei Zahlen finden — eine auf der Startkarte, zwei auf diesem Bildschirm? Dann zähle sie zusammen!\n\nDie Zahl auf der Startkarte steht in alten Ziffern:\nM = 1000   D = 500   C = 100\nL = 50   X = 10   V = 5   I = 1\n\nDie zweite ruht unter dem Siegel oben rechts — ein Tippen genügt.\n\nDie dritte ist verdeckt — nicht alles auf diesem Schirm sitzt fest. Manches lässt sich zur Seite schieben.\n\nWas drei sind, muss eins werden.");
+  showSheet("ERMITTLUNGSHILFE",
+    '<span class="roman">M = 1000\nD = 500\nC = 100\nL = 50\nX = 10\nV = 5\nI = 1</span>'
+    + 'Nicht alles auf diesem Schirm sitzt fest. Manches lässt sich aufdecken oder zur Seite schieben.\n\n'
+    + 'Konntest du drei Zahlen finden — eine auf der Startkarte, zwei auf diesem Bildschirm? Dann zähle sie zusammen und öffne das Schloss!',
+    [{label:"Verstanden", primary:true}]);
 });
 
 /* Verstecktes Fundstück: Siegel antippen deckt die Kerzenzahl (30) auf */
@@ -742,10 +793,15 @@ document.getElementById("closeFinal").addEventListener("click",()=>document.getE
 document.getElementById("reopenFinal").addEventListener("click",()=>document.getElementById("final").classList.add("on"));
 
 document.getElementById("reset").addEventListener("click",()=>{
-  if(confirm("Kompletten Einsatz zurücksetzen (inkl. Schloss)?")){
-    try{ localStorage.removeItem(STORE); localStorage.removeItem(STORE+"_gate"); }catch(e){}
-    location.reload();
-  }
+  showSheet("EINSATZ ZURÜCKSETZEN",
+    "Kompletten Einsatz zurücksetzen — inklusive Schloss und aller gefundenen Stützpunkte? Das lässt sich nicht rückgängig machen.",
+    [
+      {label:"Abbrechen"},
+      {label:"Zurücksetzen", primary:true, onClick:()=>{
+        try{ localStorage.removeItem(STORE); localStorage.removeItem(STORE+"_gate"); }catch(e){}
+        location.reload();
+      }}
+    ]);
 });
 </script>
 </body>
