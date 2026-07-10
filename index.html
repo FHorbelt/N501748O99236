@@ -425,18 +425,29 @@ function syncStateFromAngle(idx){
 for(let i=0;i<DIALS;i++) renderReel(i);
 
 /* ---- Einrast-Feedback: Klick-Sound + Vibration + visueller Ruck ---- */
-let _ac=null;
-function initAudio(){
-  if(_ac) return;
-  try{ _ac=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ _ac=null; }
+let _ac=null, _audioReady=false;
+function unlockAudio(){
+  try{
+    if(!_ac) _ac=new (window.AudioContext||window.webkitAudioContext)();
+  }catch(e){ _ac=null; return; }
+  if(_ac.state==="suspended"){ _ac.resume().catch(()=>{}); }
+  if(!_audioReady){
+    // Stummer Warmlauf: aktiviert die Audio-Engine auf iOS zuverlässig
+    try{
+      const b=_ac.createBuffer(1,1,_ac.sampleRate);
+      const s=_ac.createBufferSource(); s.buffer=b;
+      s.connect(_ac.destination); s.start(0);
+      _audioReady=true;
+    }catch(e){}
+  }
 }
-// beim ersten Antippen Audio freischalten (iOS verlangt Nutzergeste)
-dialsEl.addEventListener("pointerdown",initAudio,{once:true});
-dialsEl.addEventListener("click",initAudio,{once:true});
+// An mehreren frühen Nutzergesten freischalten (iOS verlangt echte Geste)
+["pointerdown","touchend","click"].forEach(ev=>
+  window.addEventListener(ev,unlockAudio,{once:false,passive:true}));
 
 function clickSound(){
-  if(!_ac) return;
-  if(_ac.state==="suspended"){ try{_ac.resume();}catch(e){} }
+  if(!_ac){ unlockAudio(); if(!_ac) return; }
+  if(_ac.state==="suspended"){ _ac.resume().catch(()=>{}); }
   const t=_ac.currentTime;
   // Trockener mechanischer Klick: kurzer Rauschimpuls, bandpassgefiltert, sehr schneller Abfall
   const dur=0.03;
@@ -444,12 +455,11 @@ function clickSound(){
   const buf=_ac.createBuffer(1,n,_ac.sampleRate);
   const data=buf.getChannelData(0);
   for(let i=0;i<n;i++){
-    // exponentiell abfallendes weißes Rauschen -> "Tick"
     data[i]=(Math.random()*2-1)*Math.pow(1-i/n,3);
   }
   const src=_ac.createBufferSource(); src.buffer=buf;
   const bp=_ac.createBiquadFilter(); bp.type="bandpass"; bp.frequency.value=2200; bp.Q.value=0.8;
-  const g=_ac.createGain(); g.gain.value=0.5;
+  const g=_ac.createGain(); g.gain.value=0.6;
   src.connect(bp).connect(g).connect(_ac.destination);
   src.start(t);
 }
