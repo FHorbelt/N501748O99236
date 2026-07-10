@@ -71,7 +71,13 @@
   /* Schatten oben/unten fürs Walzengefühl */
   .dial .reel-window::before{
     content:""; position:absolute; inset:0; z-index:2; pointer-events:none;
-    background:linear-gradient(180deg,rgba(8,8,6,.95),rgba(8,8,6,.35) 40%,rgba(8,8,6,.35) 60%,rgba(8,8,6,.95));
+    background:linear-gradient(180deg,rgba(8,8,6,.8),rgba(8,8,6,0) 42%,rgba(8,8,6,0) 58%,rgba(8,8,6,.8));
+  }
+  .dial .reel-window.jolt{ animation:dialJolt .12s ease; }
+  @keyframes dialJolt{
+    0%{ transform:translateY(0); }
+    45%{ transform:translateY(1.5px); }
+    100%{ transform:translateY(0); }
   }
   /* Markierungslinien der aktuellen Position */
   .dial .reel-window::after{
@@ -387,7 +393,7 @@ const OPS = [
 const dialState = Array(DIALS).fill(0);
 const dialsEl = document.getElementById("dials");
 const STEP_DEG = 36;             // 360° / 10 Ziffern
-const RADIUS = 48;               // Zylinderradius in px (größer = mehr Abstand zwischen Ziffern)
+const RADIUS = 40;               // Zylinderradius in px (größer = mehr Abstand zwischen Ziffern)
 const reels = [];                // { el, angle } je Walze
 
 for(let i=0;i<DIALS;i++){
@@ -418,12 +424,45 @@ function syncStateFromAngle(idx){
 // alle Walzen initial rendern
 for(let i=0;i<DIALS;i++) renderReel(i);
 
+/* ---- Einrast-Feedback: Klick-Sound + Vibration + visueller Ruck ---- */
+let _ac=null;
+function initAudio(){
+  if(_ac) return;
+  try{ _ac=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ _ac=null; }
+}
+// beim ersten Antippen Audio freischalten (iOS verlangt Nutzergeste)
+dialsEl.addEventListener("pointerdown",initAudio,{once:true});
+dialsEl.addEventListener("click",initAudio,{once:true});
+
+function clickSound(){
+  if(!_ac) return;
+  if(_ac.state==="suspended"){ try{_ac.resume();}catch(e){} }
+  const t=_ac.currentTime;
+  // kurzer, trockener Klick: Rauschimpuls + schneller Abfall
+  const osc=_ac.createOscillator(), g=_ac.createGain();
+  osc.type="square"; osc.frequency.setValueAtTime(1100,t);
+  osc.frequency.exponentialRampToValueAtTime(320,t+0.03);
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(0.12,t+0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.05);
+  osc.connect(g).connect(_ac.destination);
+  osc.start(t); osc.stop(t+0.06);
+}
+function feedbackTick(idx){
+  clickSound();
+  if(navigator.vibrate){ try{ navigator.vibrate(10); }catch(e){} }
+  // visueller Ruck auf dem Rad-Fenster
+  const win=reels[idx].el.parentElement;
+  win.classList.remove("jolt"); void win.offsetWidth; win.classList.add("jolt");
+}
+
 // eine Ziffer weiterdrehen (mit Einrasten + sanfter Animation)
 function stepDial(idx,delta){
   reels[idx].el.style.transition="transform .18s cubic-bezier(.2,.7,.3,1)";
   reels[idx].angle += delta*STEP_DEG;
   renderReel(idx);
   syncStateFromAngle(idx);
+  feedbackTick(idx);
   clearTimeout(reels[idx]._t);
   reels[idx]._t=setTimeout(()=>reels[idx].el.style.transition="",190);
 }
@@ -445,10 +484,11 @@ dialsEl.addEventListener("wheel",(e)=>{
 // Wischen: Walze folgt dem Finger live, rastet beim Loslassen ein
 (function(){
   const PX_PER_DEG = 0.9;        // Empfindlichkeit: px Wischweg pro Grad
-  let active=null, startY=0, baseAngle=0;
+  let active=null, startY=0, baseAngle=0, lastNotch=0;
   dialsEl.addEventListener("pointerdown",(e)=>{
     const win=e.target.closest(".reel-window"); if(!win) return;
     active=+win.getAttribute("data-i"); startY=e.clientY; baseAngle=reels[active].angle;
+    lastNotch=Math.round(reels[active].angle/STEP_DEG);
     reels[active].el.style.transition="";
     win.setPointerCapture&&win.setPointerCapture(e.pointerId);
   });
@@ -458,6 +498,13 @@ dialsEl.addEventListener("wheel",(e)=>{
     // nach oben wischen (dy negativ) -> Ziffern laufen aufwärts -> Winkel steigt
     reels[active].angle = baseAngle + (-dy)/PX_PER_DEG;
     renderReel(active);
+    // Klick/Vibration bei jedem überrollten Ziffernschritt
+    const notch=Math.round(reels[active].angle/STEP_DEG);
+    if(notch!==lastNotch){
+      lastNotch=notch;
+      syncStateFromAngle(active);
+      feedbackTick(active);
+    }
     e.preventDefault();
   });
   function end(){
