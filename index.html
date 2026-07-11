@@ -7,8 +7,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
   :root{
-    --olive:#3d3f2e; --olive-deep:#2a2c1f; --khaki:#c7bd94; --sand:#e5dcc0;
-    --danger:#e8b23a; --blood:#9a2b1e; --steel:#1a1c17;
+    --olive:#0d1a2b; --olive-deep:#08111d; --khaki:#8fa8c8; --sand:#f4e9c9;
+    --danger:#ffd54a; --blood:#3a6ea5; --steel:#05070f;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
   html,body{height:100%;width:100%;overflow:hidden;}
@@ -22,21 +22,26 @@
     position:fixed; inset:0; z-index:2000; display:flex; flex-direction:column;
     align-items:center; justify-content:center; padding:24px 18px;
     background:
-      repeating-linear-gradient(45deg,transparent,transparent 14px,rgba(0,0,0,.18) 14px,rgba(0,0,0,.18) 28px),
-      radial-gradient(circle at 50% 30%,#33352690,#14150f),
-      var(--steel);
+      radial-gradient(1px 1px at 20% 30%,rgba(255,255,255,.7),transparent),
+      radial-gradient(1px 1px at 70% 20%,rgba(255,255,255,.6),transparent),
+      radial-gradient(1px 1px at 40% 70%,rgba(255,255,255,.5),transparent),
+      radial-gradient(1px 1px at 85% 60%,rgba(255,255,255,.6),transparent),
+      radial-gradient(2px 2px at 60% 45%,rgba(255,255,255,.4),transparent),
+      radial-gradient(1px 1px at 15% 80%,rgba(255,255,255,.5),transparent),
+      radial-gradient(circle at 50% 40%,#0a1428,#05070f);
     overflow-y:auto;
   }
   #gate.hidden{ display:none; }
-  .gate-tag{ font-size:.66rem; letter-spacing:.32em; color:var(--steel); background:var(--danger); padding:3px 10px; font-weight:700; transform:rotate(-1.5deg); }
-  .gate-h1{ font-size:clamp(1.8rem,8vw,2.8rem); font-weight:700; text-transform:uppercase; margin:10px 0 4px; text-shadow:2px 2px 0 #000; text-align:center; }
-  .gate-h1 span{ color:var(--danger); }
+  .gate-tag{ font-size:.66rem; letter-spacing:.32em; color:var(--steel); background:var(--danger); padding:3px 10px; font-weight:700; border-radius:2px; }
+  .gate-h1{ font-size:clamp(1.8rem,8vw,2.8rem); font-weight:700; text-transform:uppercase; margin:10px 0 2px; text-shadow:0 0 12px rgba(255,213,74,.5),2px 2px 0 #000; text-align:center; color:var(--danger); }
+  .gate-h1 span{ color:var(--sand); }
+  .gate-motto{ color:var(--danger); font-style:italic; font-size:1rem; letter-spacing:.05em; margin-bottom:12px; text-align:center; text-shadow:0 0 8px rgba(255,213,74,.4); }
   .gate-sub{ color:var(--khaki); font-size:.85rem; text-align:center; max-width:34ch; line-height:1.45; margin-bottom:22px; }
 
   .lock{
-    background:linear-gradient(180deg,#43362a,#2b221a);
-    border:2px solid #1a120c; border-radius:14px; padding:18px 16px 20px;
-    box-shadow:0 14px 40px rgba(0,0,0,.6), inset 0 2px 6px rgba(255,255,255,.06);
+    background:linear-gradient(180deg,#0e1a2c,#070d16);
+    border:2px solid #24405f; border-radius:14px; padding:18px 16px 20px;
+    box-shadow:0 14px 40px rgba(0,0,0,.6), inset 0 2px 6px rgba(90,150,220,.1), 0 0 24px rgba(58,110,165,.15);
   }
   .lock-label{ text-align:center; font-size:.66rem; letter-spacing:.28em; color:var(--khaki); margin-bottom:12px; text-transform:uppercase; }
   .dials{ display:flex; gap:10px; justify-content:center; }
@@ -108,11 +113,12 @@
   .reveal-band{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
     font-size:.66rem; font-weight:700; letter-spacing:.22em; color:var(--steel);
     background:
-      repeating-linear-gradient(45deg,var(--danger),var(--danger) 12px,#111 12px,#111 24px);
+      repeating-linear-gradient(90deg,#ffd54a,#ffd54a 3px,#0e1a2c 3px,#0e1a2c 6px),
+      linear-gradient(180deg,#1a3050,#0e1a2c);
     cursor:grab; touch-action:pan-y; user-select:none;
     will-change:transform; }
   .reveal-band span{ background:var(--danger); padding:2px 8px; border-radius:3px;
-    box-shadow:0 1px 2px rgba(0,0,0,.4); }
+    box-shadow:0 0 8px rgba(255,213,74,.5); }
   .reveal-band:active{ cursor:grabbing; }
   /* Verstecktes Fundstück 2: antippbares Siegel deckt "30" auf */
   .gate-stamp{ position:absolute; top:16px; right:14px; z-index:2100; }
@@ -298,13 +304,14 @@
     </div>
   </div>
 
-  <span class="gate-tag">ZUGANG GESPERRT</span>
+  <span class="gate-tag">ÜBERTRAGUNG GESPERRT</span>
   <div class="gate-h1">ESCAPE <span>WEGFURT</span></div>
-  <div class="gate-sub">Diese Akte ist verschlüsselt. Die Startkarte weist dir den Weg — doch nicht alles, was du brauchst, steht dort. Manches ruht hier. Lass die drei Zahlen zu einer werden.</div>
+  <div class="gate-motto">May the Fork be with you</div>
+  <div class="gate-sub">Diese Übertragung ist verschlüsselt. Die Startkarte weist dir den Weg — doch nicht alles, was du brauchst, steht dort. Manches ruht hier. Lass die drei Zahlen zu einer werden. Möge die Macht mit dir sein.</div>
 
   <div class="reveal-strip" id="revealStrip">
     <div class="reveal-under" id="revealUnder">EINSATZJAHR 2026</div>
-    <div class="reveal-band" id="revealBand"><span>VERSCHLUSSSACHE</span></div>
+    <div class="reveal-band" id="revealBand"><span>GEHEIME DATEN</span></div>
   </div>
 
   <div class="lock">
@@ -333,7 +340,7 @@
 
   <div id="final">
     <div class="box">
-      <h2>Endanflug</h2>
+      <h2>Zielanflug</h2>
       <p>Kein Punkt auf dieser Karte verrät das Ziel. Die Zielkoordinaten könnten jedoch offensichtlicher nicht sein und doch liegen sie in verborgenen Zeilen.</p>
 
       <div class="coord-in" id="coordIn">
