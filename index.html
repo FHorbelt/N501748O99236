@@ -149,6 +149,14 @@
     display:flex; align-items:center; gap:8px; padding:10px 12px;
     background:linear-gradient(180deg,rgba(20,21,15,.92),rgba(20,21,15,0));
   }
+  .timer{
+    position:absolute; top:44px; left:12px; z-index:701; pointer-events:none;
+    font-family:"Courier New",monospace; font-weight:700; font-size:.92rem; letter-spacing:.06em;
+    color:var(--danger); background:rgba(12,12,9,.72); border:1px solid rgba(232,178,58,.4);
+    border-radius:4px; padding:4px 9px; text-shadow:1px 1px 0 #000;
+  }
+  .finaltime{ margin:10px 0 4px; font-family:"Courier New",monospace; font-weight:700;
+    font-size:1.15rem; letter-spacing:.08em; color:var(--danger); }
   .topbar .title{ font-weight:700; text-transform:uppercase; font-size:1rem; text-shadow:1px 1px 0 #000; }
   .topbar .title b{ color:var(--danger); }
   .dots{ display:flex; gap:5px; margin-left:auto; pointer-events:none; }
@@ -315,6 +323,8 @@
   <div id="map"></div>
   <div id="overlay"><div class="grid"></div><div class="border"></div></div>
 
+  <div class="timer" id="timer">⏱ 00:00</div>
+
   <div class="topbar">
     <div class="title">ESCAPE <b>WEGFURT</b></div>
     <div class="dots" id="dots"></div>
@@ -349,6 +359,7 @@
       <div class="coord-done" id="coordDone">
         <div class="obj">✅ Zielkoordinaten bestätigt</div>
         <p>Der Endpunkt ist entschlüsselt. Auf ins Feld.</p>
+        <div class="finaltime" id="finalTime"></div>
         <a id="maplink" href="#" target="_blank" rel="noopener">In Google Maps öffnen</a>
       </div>
 
@@ -378,6 +389,47 @@ const UNLOCK_CODE = "4052";           // 1996 + 2026 + 30
 const DIALS = 4;
 const HIT_RADIUS_M = 200;
 const STORE = "operation30_v3";
+
+/* ============ TIMER ============ */
+const TKEY = STORE+"_start";      // Startzeitstempel
+const TDONE = STORE+"_elapsed";   // eingefrorene Endzeit (ms), sobald gelöst
+let timerInt=null;
+function fmt(ms){
+  const s=Math.floor(ms/1000);
+  const m=Math.floor(s/60), r=s%60;
+  return String(m).padStart(2,"0")+":"+String(r).padStart(2,"0");
+}
+function timerStart(){
+  // nur setzen, wenn noch nicht gestartet und noch nicht gelöst
+  try{
+    if(localStorage.getItem(TDONE)) return;
+    if(!localStorage.getItem(TKEY)) localStorage.setItem(TKEY, String(Date.now()));
+  }catch(e){}
+  timerRun();
+}
+function timerRun(){
+  const el=document.getElementById("timer");
+  function tick(){
+    let done=null, start=null;
+    try{ done=localStorage.getItem(TDONE); start=localStorage.getItem(TKEY); }catch(e){}
+    if(done){ el.textContent="⏱ "+fmt(+done); if(timerInt){clearInterval(timerInt);timerInt=null;} return; }
+    if(!start){ el.textContent="⏱ 00:00"; return; }
+    el.textContent="⏱ "+fmt(Date.now()-(+start));
+  }
+  tick();
+  if(!timerInt) timerInt=setInterval(tick,1000);
+}
+function timerStop(){
+  try{
+    if(localStorage.getItem(TDONE)) return +localStorage.getItem(TDONE);
+    const start=localStorage.getItem(TKEY);
+    const elapsed = start ? Date.now()-(+start) : 0;
+    localStorage.setItem(TDONE, String(elapsed));
+    if(timerInt){clearInterval(timerInt);timerInt=null;}
+    document.getElementById("timer").textContent="⏱ "+fmt(elapsed);
+    return elapsed;
+  }catch(e){ return 0; }
+}
 
 /* ============ MISSIONEN ============ */
 const OPS = [
@@ -682,10 +734,11 @@ function openApp(){
   document.getElementById("app").classList.add("show");
   if(!appReady){ initMap(); appReady=true; }
   setTimeout(()=>map.invalidateSize(),100);
+  timerStart();
 }
 
 function initMap(){
-  map=L.map('map',{zoomControl:false,attributionControl:false}).setView([50.3945,10.0755],14);
+  map=L.map('map',{zoomControl:false,attributionControl:false}).setView([50.395306,10.086028],14);
   // Satellitenbild + Ortsnamen-Ebene darüber
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}).addTo(map);
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,opacity:0.9}).addTo(map);
@@ -711,6 +764,17 @@ function initMap(){
     // Button anzeigen und Karte passend zoomen, aber das Schlussrätsel nicht aufdrängen.
     document.getElementById("reopenFinal").classList.add("on");
     map.flyToBounds(L.latLngBounds(OPS.map(o=>[o.lat,o.lng])).pad(0.18),{duration:1.0});
+    // Falls das Rätsel schon gelöst war: Finale direkt in den Fertig-Zustand versetzen
+    try{
+      const done=localStorage.getItem(TDONE);
+      if(done){
+        document.getElementById("maplink").href=
+          "https://www.google.com/maps/search/?api=1&query=50.1748,9.9236";
+        document.getElementById("finalTime").textContent="⏱ Deine Zeit: "+fmt(+done);
+        document.getElementById("coordIn").classList.add("hide");
+        document.getElementById("coordDone").classList.add("on");
+      }
+    }catch(e){}
   }
 }
 
@@ -808,6 +872,8 @@ function finish(){
       const lat=`${N_WHOLE}.${N_FRAC}`, lng=`${O_WHOLE}.${O_FRAC}`;
       document.getElementById("maplink").href=
         `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+      const elapsed=timerStop();
+      document.getElementById("finalTime").textContent="⏱ Deine Zeit: "+fmt(elapsed);
       inBox.classList.add("hide");
       doneBox.classList.add("on");
     }else{
@@ -825,7 +891,8 @@ document.getElementById("reset").addEventListener("click",()=>{
     [
       {label:"Abbrechen"},
       {label:"Zurücksetzen", primary:true, onClick:()=>{
-        try{ localStorage.removeItem(STORE); localStorage.removeItem(STORE+"_gate"); }catch(e){}
+        try{ localStorage.removeItem(STORE); localStorage.removeItem(STORE+"_gate");
+             localStorage.removeItem(TKEY); localStorage.removeItem(TDONE); }catch(e){}
         location.reload();
       }}
     ]);
