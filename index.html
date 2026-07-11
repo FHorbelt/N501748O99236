@@ -150,7 +150,7 @@
     background:linear-gradient(180deg,rgba(20,21,15,.92),rgba(20,21,15,0));
   }
   .timer{
-    position:absolute; top:44px; left:12px; z-index:701; pointer-events:none;
+    position:fixed; top:12px; left:12px; z-index:2500; pointer-events:none;
     font-family:"Courier New",monospace; font-weight:700; font-size:.92rem; letter-spacing:.06em;
     color:var(--danger); background:rgba(12,12,9,.72); border:1px solid rgba(232,178,58,.4);
     border-radius:4px; padding:4px 9px; text-shadow:1px 1px 0 #000;
@@ -290,6 +290,7 @@
 <body>
 
 <!-- ============ ZAHLENSCHLOSS ============ -->
+<div class="timer" id="timer" style="display:none">⏱ 00:00</div>
 <div id="gate">
   <div class="gate-stamp" id="gateSeal" title="">
     <div class="seal-outer">
@@ -322,8 +323,6 @@
 <div id="app">
   <div id="map"></div>
   <div id="overlay"><div class="grid"></div><div class="border"></div></div>
-
-  <div class="timer" id="timer">⏱ 00:00</div>
 
   <div class="topbar">
     <div class="title">ESCAPE <b>WEGFURT</b></div>
@@ -409,6 +408,7 @@ function timerStart(){
 }
 function timerRun(){
   const el=document.getElementById("timer");
+  el.style.display="block";
   function tick(){
     let done=null, start=null;
     try{ done=localStorage.getItem(TDONE); start=localStorage.getItem(TKEY); }catch(e){}
@@ -530,6 +530,9 @@ function unlockAudio(){
 // An mehreren frühen Nutzergesten freischalten (iOS verlangt echte Geste)
 ["pointerdown","touchend","click"].forEach(ev=>
   window.addEventListener(ev,unlockAudio,{once:false,passive:true}));
+
+// Timer startet, sobald der Spieler am Schloss zu drehen beginnt
+document.getElementById("dials").addEventListener("pointerdown",()=>{ timerStart(); },{once:true});
 
 function clickSound(){
   if(!_ac){ unlockAudio(); if(!_ac) return; }
@@ -721,6 +724,9 @@ document.getElementById("gateSeal").addEventListener("click",()=>{
 })();
 
 try{ if(localStorage.getItem(STORE+"_gate")==="1"){ setTimeout(openApp,50); } }catch(e){}
+
+// Timer nach Reload fortsetzen (läuft schon oder ist bereits gestoppt)
+try{ if(localStorage.getItem(TKEY) || localStorage.getItem(TDONE)){ timerRun(); } }catch(e){}
 
 /* ============ APP / KARTE ============ */
 let map, markers={}, bearingLines=[], missMk=null, appReady=false;
